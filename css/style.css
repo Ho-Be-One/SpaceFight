@@ -1,0 +1,106 @@
+html {
+	background: -webkit-gradient(linear, left top, left bottom, from(#000000), to(#041028));
+  }
+  body {
+	background-repeat: no-repeat;
+	background: #cbccc8;
+	background: -webkit-gradient(linear, left top, left bottom, from(#000000), to(#041028));
+	background: -moz-linear-gradient(top, #000000, #041028);
+	margin: 0;
+	font-family: 'Press Start 2P', cursive;
+  }
+#canvas {
+padding: 0;
+margin: 10px auto 50px auto;
+background-color: transparent;
+border: 1px dashed #555555;
+border-radius: 5px;
+}
+#cantenair{
+   width: 600px;
+   margin: 0 auto;
+}
+#scoreboard{
+   width: 600px;
+   height: auto;
+
+}
+#shootTitre, #targetReachedTitre, #gameLevelTitre, #scoreTitre, #skillsTitre, #damagesTitre{
+   color: #ffffff;
+   padding: 0 10px 0 0;
+   width: 117px;
+   height: auto;
+   font-size: 9px;
+   float: left;
+   border-radius: 5px;
+
+}
+#shoot, #targetReached, #gameLevel, #score, #live, #skills, #damages{
+   color: #ffffff;
+   padding:  10px 0 0 0;
+   width: 117px;
+   height: auto;
+   font-size: 9px;
+   float: left;
+   border-radius: 5px;
+
+}
+#targetReached, #targetReachedTitre{
+   color: #7890ee;
+
+}
+#gameLevel, #gameLevelTitre{
+   color: #0bdb1c;
+}
+#score, #scoreTitre{
+   color: #d90e0e;
+}
+#skills, #skillsTitre{
+   color: #f37b0c;
+}
+#live{
+   color: #ffffff;
+}
+#damagesTitre, #damages{
+   color: #d80bdc;
+}
+#titre{
+   height: auto;
+   width: 100%;
+   padding: 15px 0;
+   color: #ffffff;
+   border-bottom: 1px dotted rgba(255, 255, 255, 0.32);
+   margin-bottom: 15px;
+   font-size: 12px
+}
+.cadre{
+   height: auto;
+   width: 100px;
+   margin: 0 0 5px 0;
+   float: left
+}
+#timeTreeFire{
+   float: right;
+   height: auto;
+   width: auto;
+   color: #4e4e4e;
+}
+#message, #play{
+   width: 600px;
+   color: #ffffff;
+   font-size: 15px;
+   float: left;
+   margin: 350px auto;
+   display: flex;
+   justify-content: center;
+   position: absolute;
+   text-align: center;
+
+}
+#play{
+   margin: 420px auto;
+   font-size: 30px;
+   color: red;
+   font-size: 20px;
+   text-decoration: none;
+}

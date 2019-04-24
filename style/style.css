@@ -1,0 +1,97 @@
+html{
+  background: radial-gradient(farthest-corner, #0d1c45 2%, #000000);
+  
+  }
+  body{
+    padding: 20px;
+    font-family: arial;
+  }
+  #container {
+    width: 700px;
+    border-radius: 3px;
+    margin: 20px auto 0 auto;
+    padding: 15px;
+  }
+  
+  .container-btn, .container-score {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .container-score {
+    background-color: transparent;
+    border-radius: 5px;
+    font-family: 'Press Start 2P', cursive;
+    border: 1px solid #ffffff;
+    width: auto;
+    padding: 10px;
+    margin: 50px auto 0 auto;
+  
+  }
+  .btn-primary{
+    background-color: #993333;
+      border: 2px solid #993333;
+  
+  }
+  .btn-green{
+    background-color: #0e6815;
+      border: 5px solid #0b5711;
+  }
+  .btn-yeallow{
+    border: 2px solid #771b1b;
+    background-color: #993333;
+  }
+  .btn {
+    height: 100px;
+    width: 100px;
+    padding: 10px;
+    font-size: 12px;
+    font-weight: 100;
+    margin: 20px;
+    color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 4px 0px 5px #5e5e5e;
+    
+  }
+  .btn:hover{
+    background-color: #5e0e0e;
+  }
+  .btn:active{
+      box-shadow: 1px 0px 2px #b1b1b1;
+  }
+  .btn-green:hover{
+    background-color: #084a0d;
+  }
+  #affichage{
+    font-size: 50px;
+    color: #ffffff;
+  }
+  #echo_chrono, #autoclic, #multiplicateur, #clic{
+    font-size: 15px;
+  }
+  #tower{
+    width: 850px;
+    margin-bottom: 50px;
+    position: absolute;
+  }
+  
+  .btn-control, .btn-control-2{
+    height: 100px; /*permet d'obtenir un rond*/
+    width: 100px;/*permet d'obtenir un rond*/
+    color : #FFFFFF;
+    border-radius: 5%;
+    padding: 2px solid red;
+    margin: 3px 15px;
+    font-size: 9px;
+    font-family: 'Press Start 2P', cursive;
+    background-image: linear-gradient(#FFFFFF, #FFA500, #FF8C00, #FF7F50, #FF6347, #FF4500);/*ajout degradé interieur bouton*/
+    box-shadow: 5px 10px 8px rgba(0, 0, 0, 0.81); /*ajout d'une ombre aux boutons */
+    }
+   .btn-control:active{
+       background-image: linear-gradient(#ffffff 0%, #ffa500 20.33%, #ff8c00 32.05%, #ff7f50 46.75%, #ff6347 63.44%, #ff4500 83.44%);/*ajout degradé interieur bouton*/
+  
+    box-shadow: 5px 10px 8px rgba(0, 0, 0, 0); /*ajout d'une ombre aux boutons */
+   }
+  
