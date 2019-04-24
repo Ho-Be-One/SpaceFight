@@ -6,7 +6,7 @@
 ![soldat](./img/picTwo.png)
 
 ### link to the game 
-[Mes-tes-haut](https://ho-be-one.github.io/SpaceFight/index.html).
+[ Space-Fight](https://ho-be-one.github.io/SpaceFight/index.html).
 
 
 
