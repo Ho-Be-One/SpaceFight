@@ -5,6 +5,9 @@
 	var play = false; 
 
 	document.getElementById("play").addEventListener("click", function () {
+		// Si le jeu redémarre, s'assurer que les écouteurs d'événements sont bien actifs
+		document.addEventListener('keydown', yesMove);
+		document.addEventListener('keyup', stopMove);
 	
 		// Display main message
 		document.getElementById("play").style.display = "none";
@@ -12,7 +15,7 @@
 
 		let parameter = {
 			score:0,
-			live:3,
+			live:3, // Correspond aux 3 vies affichées dans l'UI
 			level:1,
 			skills:0.00,
 		}
@@ -70,8 +73,23 @@
 			speedX:3,
 			speedY:2,
 			switchDirectionX:true,
-			switchDirectionY:true
+			switchDirectionY:true,
+			lastDirectionChange: 0, // Timestamp du dernier changement de direction aléatoire
+			randomMoveInterval: 2000, // Intervalle en ms pour les mouvements aléatoires (toutes les 2 secondes)
+			canShoot: true,
+			shootCooldown: 1500, // Temps en ms avant que l'ennemi puisse tirer à nouveau
+			lastShotTime: 0
 		}
+
+		let enemyGun = {
+			X:[],
+			Y:[],
+			limit: 700, // Limite de la portée du tir ennemi (bas du canvas)
+			fire:false,
+			step:0, // Initialiser step à 0 pour le tir ennemi
+			speed: 5 // Vitesse du tir ennemi
+		}
+
 		let paraGun = {
 			X:[],
 			Y:[],
@@ -193,12 +211,88 @@
 			ctx.fillStyle = "red";
 			ctx.fillRect(2 + badBoy.moveX, 10 + badBoy.moveY, 25, 3);
 			
-			
+			// Logique de mouvement aléatoire pour l'ennemi
+			let currentTime = Date.now();
+			if (currentTime - badBoy.lastDirectionChange > badBoy.randomMoveInterval) {
+				// Changer de direction de manière plus aléatoire
+				if (Math.random() < 0.3) { // 30% de chance de changer de direction X
+					badBoy.switchDirectionX = !badBoy.switchDirectionX;
+				}
+				if (Math.random() < 0.3) { // 30% de chance de changer de direction Y
+					badBoy.switchDirectionY = !badBoy.switchDirectionY;
+				}
+				// Vitesse légèrement aléatoire
+				badBoy.speedX = 2 + Math.random() * 2 + (parameter.level -1) * 0.5; // Vitesse X entre 2 et 4, + bonus de niveau
+				badBoy.speedY = 1 + Math.random() * 1.5 + (parameter.level -1) * 0.2; // Vitesse Y entre 1 et 2.5, + bonus de niveau
+
+				badBoy.lastDirectionChange = currentTime;
+			}
+
+			// Logique de tir de l'ennemi
+			let enemyCurrentTime = Date.now();
+			if (badBoy.canShoot && enemyCurrentTime - badBoy.lastShotTime > badBoy.shootCooldown) {
+				if (enemyGun.X.length < 1) { // Permettre à l'ennemi de tirer seulement s'il n'y a pas déjà un tir actif
+					enemyGun.X.push(badBoy.moveX + 13); // Position X du tir ennemi (centre de l'ennemi)
+					enemyGun.Y.push(badBoy.moveY + 20); // Position Y du tir ennemi (sous l'ennemi)
+					enemyGun.fire = true;
+					badBoy.lastShotTime = enemyCurrentTime;
+					// sound.enemyFireGun.play(); // Ajouter un son pour le tir ennemi si disponible
+				}
+			}
+
+			if (enemyGun.fire) {
+				enemyGun.step += enemyGun.speed;
+				ctx.beginPath();
+				ctx.fillStyle = "orange"; // Couleur du tir ennemi
+				ctx.fillRect(
+					enemyGun.X[0],
+					enemyGun.Y[0] + enemyGun.step,
+					2,
+					5
+				);
+
+				// Collision du tir ennemi avec le joueur
+				let enemyBulletX = enemyGun.X[0];
+				let enemyBulletY = enemyGun.Y[0] + enemyGun.step;
+				let playerHitboxX = paraShip.X;
+				let playerHitboxY = paraShip.Y + 690; // Y ajusté pour la base du vaisseau joueur
+				let playerHitboxWidth = 30;
+				let playerHitboxHeight = 10;
+
+				if (enemyBulletX > playerHitboxX && enemyBulletX < playerHitboxX + playerHitboxWidth &&
+					enemyBulletY > playerHitboxY && enemyBulletY < playerHitboxY + playerHitboxHeight) {
+
+					sound.shock.play(); // Son de dégât sur le joueur
+					paraShip.live -= 5; // Réduire la vie du joueur (valeur à ajuster)
+					dom("live", Math.max(0, Math.ceil(paraShip.live / (22/3)))); // Mettre à jour l'affichage des vies (supposant que 22 = 3 vies UI)
+
+					enemyGun.step = 0; // Réinitialiser le tir ennemi
+					enemyGun.X = [];
+					enemyGun.Y = [];
+					enemyGun.fire = false;
+
+					if (paraShip.live <= 0) {
+						sound.loser.play();
+						// Afficher le message de fin de partie
+						document.getElementById("message").textContent = "GAME OVER! Score: " + parameter.score;
+						document.getElementById("message").style.display = "block";
+						document.getElementById("play").textContent = "Rejouer?";
+						document.getElementById("play").style.display = "block";
+						window.cancelAnimationFrame(loop_globalLoop); // Arrêter la boucle de jeu
+						document.removeEventListener('keydown', yesMove); // Désactiver les mouvements
+						document.removeEventListener('keyup', stopMove);  // Désactiver les mouvements
+						return; // Sortir de la boucle pour éviter d'autres exécutions
+					}
+				}
 
 
-			
-
-
+				if (enemyGun.Y[0] + enemyGun.step > enemyGun.limit) {
+					enemyGun.step = 0;
+					enemyGun.X = [];
+					enemyGun.Y = [];
+					enemyGun.fire = false;
+				}
+			}
 
 
 			paraShip.shootGun ? shootingArea(paraShip.X, paraShip.Y):''
