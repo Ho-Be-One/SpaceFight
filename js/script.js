@@ -3,6 +3,7 @@
 	var ctx = canvas.getContext('2d');
 
 	var play = false; 
+	var loop_globalLoop = null; // Déclaration de loop_globalLoop dans une portée plus large
 
 	document.getElementById("play").addEventListener("click", function () {
 		// Si le jeu redémarre, s'assurer que les écouteurs d'événements sont bien actifs
@@ -13,13 +14,74 @@
 		document.getElementById("play").style.display = "none";
 		document.getElementById("message").style.display = "none";
 
-		initBunkers(); // Initialiser les bunkers au début du jeu
-
+		// Définition initiale de parameter pour cette portée de fonction (nouvelle partie)
 		let parameter = {
-			score:0,
-			live:3, // Correspond aux 3 vies affichées dans l'UI
-			level:1,
-			skills:0.00,
+			score: 0,
+			live: 3, // Correspond aux 3 vies affichées dans l'UI
+			level: 1,
+			skills: 0.00,
+		};
+
+		// Réinitialisation de l'affichage du score, etc.
+		dom("score", parameter.score);
+		dom("live", parameter.live);
+		dom("level", parameter.level);
+		dom("skills", parameter.skills);
+
+		// Réinitialisation de l'état du joueur
+		paraShip.X = canvas.width / 2 - 15;
+		paraShip.Y = 0;
+		paraShip.velocityX = 0;
+		paraShip.velocityY = 0;
+		paraShip.live = 22;
+		paraShip.shootGun = false;
+		paraShip.left = false;
+		paraShip.right = false;
+		paraShip.up = false;
+		paraShip.down = false;
+
+		// Réinitialisation de l'état de l'ennemi
+		badBoy.moveX = canvas.width / 2 - 15; // Position de dessin initiale X
+		badBoy.moveY = 50;                  // Position de dessin initiale Y
+		badBoy.health = 100;
+		badBoy.speedX = 3 + (parameter.level -1) * 0.5; // Vitesse initiale tenant compte du niveau (même si niv 1 ici)
+		badBoy.speedY = 2 + (parameter.level -1) * 0.2; // Vitesse initiale tenant compte du niveau
+		badBoy.switchDirectionX = true;
+		badBoy.switchDirectionY = true;
+		badBoy.lastDirectionChange = 0;
+		badBoy.canShoot = true;
+		badBoy.lastShotTime = 0;
+		// badBoy.X et badBoy.Y (positions de base) ne sont pas directement utilisés pour le mouvement,
+		// mais pourraient être alignés si nécessaire :
+		// badBoy.X = badBoy.moveX;
+		// badBoy.Y = badBoy.moveY;
+
+
+		enemyDescentTimer = 0;
+
+		// Vider et réinitialiser les éléments dynamiques
+		particles = [];
+		asteroids = [];
+		bunkers = [];
+		initBunkers(); // Recrée les bunkers pour la nouvelle partie
+
+		enemyGun.X = [];
+		enemyGun.Y = [];
+		enemyGun.fire = false;
+		enemyGun.step = 0;
+
+		paraGun.X = [];
+		paraGun.Y = [];
+		paraGun.fire = false;
+		paraGun.step = 3;
+
+		bonusShip = null;
+
+		// Annuler toute boucle de jeu précédente avant d'en lancer une nouvelle.
+		// loop_globalLoop est déclarée globalement implicitement par son utilisation dans globalLoop.
+		// Il est préférable de la déclarer explicitement au scope global du script.
+		if (typeof loop_globalLoop !== 'undefined' && loop_globalLoop !== null) {
+			window.cancelAnimationFrame(loop_globalLoop);
 		}
 
 		function dom(dom, init){
