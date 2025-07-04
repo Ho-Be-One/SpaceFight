@@ -48,7 +48,11 @@
 		let paraShip = {
 			X:300,
 			Y:0,
-			velocity:5,
+			velocityX:0, // Vitesse actuelle sur l'axe X
+			velocityY:0, // Vitesse actuelle sur l'axe Y
+			acceleration: 0.5, // Valeur d'accélération
+			friction: 0.95, // Valeur de friction (plus proche de 1 = moins de friction)
+			maxSpeed: 7, // Vitesse maximale
 			up:false,
 			down:false,
 			right:false,
@@ -59,7 +63,8 @@
 		let badBoy = {
 			X:300,
 			Y:0,
-			color:['', 'yellow'],
+			health: 100, // Ajout de la propriété health
+			color:['', 'yellow', 'orange', 'red'], // Couleurs pour différents niveaux/états
 			moveX:0,
 			moveY:0,
 			speedX:3,
@@ -94,14 +99,59 @@
 		function globalLoop(){
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 			
-			
-			// Move left and right
-			paraShip.left && paraShip.X >= 5 ? paraShip.X -= paraShip.velocity :''
-			paraShip.right && paraShip.X <= 560 ? paraShip.X += paraShip.velocity : ''
-			
-			// // Move up and down
-			paraShip.up && paraShip.Y >= -300 ? paraShip.Y -=  paraShip.velocity : ''
-			paraShip.down && paraShip.Y <= -5 ? paraShip.Y += paraShip.velocity : ''
+			// Appliquer l'accélération
+			if (paraShip.left) {
+				paraShip.velocityX -= paraShip.acceleration;
+			}
+			if (paraShip.right) {
+				paraShip.velocityX += paraShip.acceleration;
+			}
+			if (paraShip.up) {
+				paraShip.velocityY -= paraShip.acceleration;
+			}
+			if (paraShip.down) {
+				paraShip.velocityY += paraShip.acceleration;
+			}
+
+			// Appliquer la friction
+			paraShip.velocityX *= paraShip.friction;
+			paraShip.velocityY *= paraShip.friction;
+
+			// Limiter la vitesse
+			if (paraShip.velocityX > paraShip.maxSpeed) {
+				paraShip.velocityX = paraShip.maxSpeed;
+			}
+			if (paraShip.velocityX < -paraShip.maxSpeed) {
+				paraShip.velocityX = -paraShip.maxSpeed;
+			}
+			if (paraShip.velocityY > paraShip.maxSpeed) {
+				paraShip.velocityY = paraShip.maxSpeed;
+			}
+			if (paraShip.velocityY < -paraShip.maxSpeed) {
+				paraShip.velocityY = -paraShip.maxSpeed;
+			}
+
+			// Mettre à jour la position
+			paraShip.X += paraShip.velocityX;
+			paraShip.Y += paraShip.velocityY;
+
+			// Garder le vaisseau dans les limites du canvas
+			if (paraShip.X < 5) {
+				paraShip.X = 5;
+				paraShip.velocityX = 0;
+			}
+			if (paraShip.X > 560) {
+				paraShip.X = 560;
+				paraShip.velocityX = 0;
+			}
+			if (paraShip.Y < -300) {
+				paraShip.Y = -300;
+				paraShip.velocityY = 0;
+			}
+			if (paraShip.Y > -5) {
+				paraShip.Y = -5;
+				paraShip.velocityY = 0;
+			}
 			
 			ctx.beginPath();
 			ctx.fillStyle = "white";
@@ -171,13 +221,71 @@
 					paraShip.shootGun= false
 				}
 				else{
-					console.log('bad by X : '+badBoy.moveX)
-					console.log('bad by Y : '+badBoy.moveY)
+					// Détection de collision entre le tir et l'ennemi
+					let bulletX = paraGun.X[0] + 13;
+					let bulletY = paraGun.limit - paraGun.step + paraGun.Y[0];
+					let enemyX = badBoy.moveX;
+					let enemyY = badBoy.moveY;
+					let enemyWidth = 30;
+					let enemyHeight = 16; // Hauteur approximative de l'ennemi
+
+					if (bulletX > enemyX && bulletX < enemyX + enemyWidth &&
+						bulletY > enemyY && bulletY < enemyY + enemyHeight) {
+
+						sound.domages.play();
+						badBoy.health -= 25; // Réduire la vie de l'ennemi
+						paraGun.step = 0; // Réinitialiser le tir pour qu'il disparaisse
+						paraGun.X = [];
+						paraGun.Y = [];
+						paraGun.fire = false;
+						paraShip.shootGun = false;
+
+						if (badBoy.health <= 0) {
+							sound.explosion.play();
+							parameter.score += 100; // Augmenter le score
+							dom("score", parameter.score);
+
+							// Augmentation de niveau tous les 500 points (par exemple)
+							if (parameter.score % 500 === 0 && parameter.score > 0) {
+								parameter.level++;
+								dom("level", parameter.level);
+								sound.newLevel.play();
+								// Augmenter la difficulté
+								badBoy.speedX += 0.5;
+								badBoy.speedY += 0.2;
+								badBoy.health = 100 + (parameter.level -1) * 20; // Augmenter la vie de l'ennemi avec le niveau
+
+								// Changer la couleur de l'ennemi en fonction du niveau
+								if(parameter.level < badBoy.color.length){
+									ctx.fillStyle = badBoy.color[parameter.level];
+								} else {
+									ctx.fillStyle = badBoy.color[badBoy.color.length -1]; // Utiliser la dernière couleur si le niveau dépasse
+								}
+
+								// Jouer le son correspondant au round/niveau
+								if (parameter.level === 2) sound.round_2.play();
+								else if (parameter.level === 3) sound.round_3.play();
+								else if (parameter.level === 4) sound.round_4.play();
+								else if (parameter.level === 5) sound.round_5.play();
+								else if (parameter.level >= 6) sound.round_6.play();
 
 
+							}
+
+							// Réinitialiser l'ennemi
+							badBoy.X = Math.random() * (canvas.width - 30);
+							badBoy.Y = Math.random() * 100;
+							badBoy.health = 100 + (parameter.level -1) * 20; // S'assurer que la vie est réinitialisée correctement
+						}
+					}
 				}
-
 			}
+
+			// Afficher la barre de vie de l'ennemi
+			ctx.fillStyle = "green";
+			ctx.fillRect(badBoy.moveX, badBoy.moveY - 10, (badBoy.health / (100 + (parameter.level -1) * 20)) * 30, 5);
+
+
 			loop_globalLoop = window.requestAnimationFrame(globalLoop);
 			
 		}
