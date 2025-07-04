@@ -13,6 +13,8 @@
 		document.getElementById("play").style.display = "none";
 		document.getElementById("message").style.display = "none";
 
+		initBunkers(); // Initialiser les bunkers au début du jeu
+
 		let parameter = {
 			score:0,
 			live:3, // Correspond aux 3 vies affichées dans l'UI
@@ -101,6 +103,282 @@
 		let impactArea = {
 			zone:0
 		}
+
+		let particles = []; // Tableau pour stocker les particules d'explosion
+		let asteroids = []; // Tableau pour stocker les astéroïdes
+		let bunkers = []; // Tableau pour stocker les bunkers
+		let bonusShip = null; // Pour le vaisseau bonus
+
+		// Fonction pour créer une particule
+		function createParticle(x, y, color) {
+			return {
+				x: x,
+				y: y,
+				size: Math.random() * 5 + 2, // Taille aléatoire entre 2 et 7
+				color: color,
+				velocityX: (Math.random() - 0.5) * 5, // Vitesse X aléatoire
+				velocityY: (Math.random() - 0.5) * 5, // Vitesse Y aléatoire
+				life: 30 + Math.random() * 30 // Durée de vie de la particule (en frames)
+			};
+		}
+
+		// Fonction pour créer une explosion
+		function createExplosion(x, y, color, numParticles = 20) {
+			for (let i = 0; i < numParticles; i++) {
+				particles.push(createParticle(x, y, color));
+			}
+			sound.explosion.play(); // Jouer le son d'explosion
+		}
+
+		// Fonction pour dessiner et mettre à jour les particules
+		function handleParticles() {
+			for (let i = particles.length - 1; i >= 0; i--) {
+				let p = particles[i];
+				ctx.beginPath();
+				ctx.fillStyle = p.color;
+				ctx.fillRect(p.x, p.y, p.size, p.size);
+
+				p.x += p.velocityX;
+				p.y += p.velocityY;
+				p.life -= 1;
+
+				if (p.life <= 0) {
+					particles.splice(i, 1); // Supprimer la particule si sa durée de vie est écoulée
+				}
+			}
+		}
+
+		// Fonction pour créer un astéroïde
+		function createAsteroid() {
+			let size = Math.random() * 30 + 20; // Taille aléatoire entre 20 et 50
+			let x = Math.random() * (canvas.width - size);
+			let y = -size; // Apparaît en haut, hors de l'écran
+			let speedY = Math.random() * 1 + 0.5 + (parameter.level * 0.1); // Vitesse de descente, augmente avec le niveau
+			let color = `rgb(${Math.random()*100 + 100}, ${Math.random()*100 + 100}, ${Math.random()*100 + 100})`; // Couleur grisâtre aléatoire
+			asteroids.push({ x, y, size, speedY, color, health: size }); // La vie de l'astéroïde dépend de sa taille
+		}
+
+		// Fonction pour dessiner et mettre à jour les astéroïdes
+		function handleAsteroids() {
+			// Créer de nouveaux astéroïdes de temps en temps
+			// La fréquence augmente avec le niveau, mais pas trop vite.
+			let asteroidSpawnRate = Math.max(100, 300 - parameter.level * 20);
+			if (Math.random() < 1 / asteroidSpawnRate) {
+				createAsteroid();
+			}
+
+			for (let i = asteroids.length - 1; i >= 0; i--) {
+				let a = asteroids[i];
+				ctx.beginPath();
+				ctx.fillStyle = a.color;
+				// Dessiner une forme d'astéroïde plus complexe (simplifié ici par un cercle)
+				ctx.arc(a.x + a.size / 2, a.y + a.size / 2, a.size / 2, 0, Math.PI * 2);
+				ctx.fill();
+				// Ou un simple rectangle pour commencer: ctx.fillRect(a.x, a.y, a.size, a.size);
+
+
+				a.y += a.speedY;
+
+				// Supprimer les astéroïdes qui sortent de l'écran par le bas
+				if (a.y > canvas.height) {
+					asteroids.splice(i, 1);
+					continue;
+				}
+
+				// Collision Astéroïde - Vaisseau Joueur
+				let playerHitboxX = paraShip.X;
+				let playerHitboxY = paraShip.Y + 690;
+				let playerHitboxWidth = 30;
+				let playerHitboxHeight = 10;
+
+				if (a.x < playerHitboxX + playerHitboxWidth &&
+					a.x + a.size > playerHitboxX &&
+					a.y < playerHitboxY + playerHitboxHeight &&
+					a.y + a.size > playerHitboxY) {
+
+					createExplosion(a.x + a.size / 2, a.y + a.size / 2, a.color, Math.floor(a.size / 2));
+					asteroids.splice(i, 1);
+					sound.shock.play();
+					paraShip.live -= 10; // Dégâts importants pour collision avec astéroïde
+					dom("live", Math.max(0, Math.ceil(paraShip.live / (22/3))));
+					if (paraShip.live <= 0) {
+						// Logique de Game Over déjà gérée dans la section des tirs ennemis
+						// On s'assure juste que l'explosion du joueur est créée si ce n'est pas déjà fait
+						if(document.getElementById("message").textContent.indexOf("GAME OVER") === -1){
+							createExplosion(paraShip.X + 15, paraShip.Y + 695, 'white');
+							sound.loser.play();
+							document.getElementById("message").textContent = "GAME OVER! Score: " + parameter.score;
+							document.getElementById("message").style.display = "block";
+							document.getElementById("play").textContent = "Rejouer?";
+							document.getElementById("play").style.display = "block";
+							window.cancelAnimationFrame(loop_globalLoop);
+							document.removeEventListener('keydown', yesMove);
+							document.removeEventListener('keyup', stopMove);
+						}
+						return; // Important pour stopper la boucle si game over
+					}
+					continue; // Passer à l'astéroïde suivant après collision
+				}
+
+
+				// Collision Astéroïde - Tirs du Joueur
+				if (paraGun.fire) {
+					let bulletX = paraGun.X[0] + 13;
+					let bulletY = paraGun.limit - paraGun.step + paraGun.Y[0];
+					if (bulletX > a.x && bulletX < a.x + a.size &&
+						bulletY > a.y && bulletY < a.y + a.size) {
+
+						a.health -= 25; // Dégâts du tir sur l'astéroïde
+						// Effet visuel de tir touchant l'astéroïde (petite explosion/étincelle)
+						createExplosion(bulletX, bulletY, 'orange', 3);
+
+						// Réinitialiser le tir du joueur
+						paraGun.step = 0;
+						paraGun.X = [];
+						paraGun.Y = [];
+						paraGun.fire = false;
+						paraShip.shootGun = false;
+
+						if (a.health <= 0) {
+							createExplosion(a.x + a.size / 2, a.y + a.size / 2, a.color, Math.floor(a.size / 2));
+							asteroids.splice(i, 1);
+							parameter.score += Math.floor(a.size / 2); // Points en fonction de la taille
+							dom("score", parameter.score);
+							sound.domages.play(); // Utiliser un son différent pour la destruction d'astéroïde ?
+						}
+						// Ne pas 'continue' ici, car un tir peut potentiellement traverser ou un autre astéroïde peut être touché dans la même frame.
+                        // Cependant, comme le tir est réinitialisé, cela limite à une collision par tir.
+					}
+				}
+			}
+		}
+
+		// --- Début des éléments inspirés de Space Invaders ---
+
+		// Fonction pour initialiser les bunkers
+		function initBunkers() {
+			bunkers = []; // Réinitialiser les bunkers si on relance le jeu
+			const bunkerWidth = 60;
+			const bunkerHeight = 30;
+			const bunkerPadding = 50;
+			const numBunkers = 4;
+			const startX = (canvas.width - (numBunkers * bunkerWidth + (numBunkers - 1) * bunkerPadding)) / 2;
+			const bunkerY = canvas.height - 150; // Position Y des bunkers
+
+			for (let i = 0; i < numBunkers; i++) {
+				let x = startX + i * (bunkerWidth + bunkerPadding);
+				// Chaque bunker est composé de plusieurs blocs
+				let blocks = [];
+				let blockWidth = 10;
+				let blockHeight = 10;
+				for (let r = 0; r < 3; r++) { // 3 rangées de blocs
+					for (let c = 0; c < 6; c++) { // 6 colonnes de blocs
+						// Forme de base du bunker (peut être affinée)
+						if (r === 0 && (c === 0 || c === 5)) continue; // Coins supérieurs vides
+						if (r === 1 && (c === 0 || c === 5) && Math.random() < 0.3) continue; // Ébrécher un peu
+						blocks.push({
+							x: x + c * blockWidth,
+							y: bunkerY + r * blockHeight,
+							width: blockWidth,
+							height: blockHeight,
+							health: 20 // Chaque bloc a de la vie
+						});
+					}
+				}
+				bunkers.push({ x, y: bunkerY, width: bunkerWidth, height: bunkerHeight, blocks });
+			}
+		}
+
+		// Fonction pour dessiner les bunkers
+		function drawBunkers() {
+			ctx.fillStyle = 'green';
+			bunkers.forEach(bunker => {
+				bunker.blocks.forEach(block => {
+					ctx.fillRect(block.x, block.y, block.width, block.height);
+				});
+			});
+		}
+
+		// Fonction pour gérer les collisions avec les bunkers
+		function handleBunkerCollisions(bulletX, bulletY, bulletWidth, bulletHeight, isPlayerBullet) {
+			for (let b = bunkers.length - 1; b >= 0; b--) {
+				for (let i = bunkers[b].blocks.length - 1; i >= 0; i--) {
+					let block = bunkers[b].blocks[i];
+					if (bulletX < block.x + block.width &&
+						bulletX + bulletWidth > block.x &&
+						bulletY < block.y + block.height &&
+						bulletY + bulletHeight > block.y) {
+
+						block.health -= 10; // Dégâts sur le bloc
+						if (block.health <= 0) {
+							bunkers[b].blocks.splice(i, 1); // Détruire le bloc
+						}
+						return true; // Collision détectée et gérée
+					}
+				}
+			}
+			return false; // Pas de collision avec un bunker
+		}
+
+		// Fonction pour créer le vaisseau bonus
+		function createBonusShip() {
+			// Apparaît plus rarement et après un score un peu plus élevé
+			if (!bonusShip && Math.random() < 0.0005 && parameter.score > 1500) {
+				bonusShip = {
+					x: canvas.width, // Commence à droite
+					y: 50,
+					width: 30,
+					height: 15,
+					speed: -2, // Se déplace de droite à gauche
+					color: 'purple',
+					points: Math.floor(Math.random() * 200) + 50 // Points bonus aléatoires
+				};
+				// sound.bonusShipAppear.play(); // Ajouter un son si disponible
+			}
+		}
+
+		// Fonction pour dessiner et gérer le vaisseau bonus
+		function handleBonusShip() {
+			if (bonusShip) {
+				ctx.fillStyle = bonusShip.color;
+				ctx.fillRect(bonusShip.x, bonusShip.y, bonusShip.width, bonusShip.height);
+				bonusShip.x += bonusShip.speed;
+
+				// Collision avec tir joueur
+				if (paraGun.fire) {
+					let bulletX = paraGun.X[0] + 13;
+					let bulletY = paraGun.limit - paraGun.step + paraGun.Y[0];
+					if (bulletX > bonusShip.x && bulletX < bonusShip.x + bonusShip.width &&
+						bulletY > bonusShip.y && bulletY < bonusShip.y + bonusShip.height) {
+
+						createExplosion(bonusShip.x + bonusShip.width / 2, bonusShip.y + bonusShip.height / 2, bonusShip.color, 15);
+						parameter.score += bonusShip.points;
+						dom("score", parameter.score);
+						// sound.bonusShipDestroyed.play(); // Ajouter un son
+						bonusShip = null; // Détruire le vaisseau bonus
+						// Réinitialiser le tir du joueur
+						paraGun.step = 0;
+						paraGun.X = [];
+						paraGun.Y = [];
+						paraGun.fire = false;
+						paraShip.shootGun = false;
+					}
+				}
+
+				if (bonusShip && bonusShip.x + bonusShip.width < 0) { // Si sort de l'écran à gauche
+					bonusShip = null;
+				}
+			} else {
+				createBonusShip(); // Essayer de créer un nouveau vaisseau bonus
+			}
+		}
+
+		// Variable pour la descente des ennemis (Space Invaders style)
+		let enemyDescentTimer = 0;
+		const enemyDescentInterval = 300; // Descend toutes les X frames (ajuster pour la vitesse)
+		const enemyDescentAmount = 5; // Descend de Y pixels
+
+		// --- Fin des éléments inspirés de Space Invaders ---
 		
 		function shootingArea(valuX, valuY){
 			if(paraGun.X.length < 1){
@@ -251,19 +529,33 @@
 					5
 				);
 
-				// Collision du tir ennemi avec le joueur
+				// Collision du tir ennemi avec le joueur OU les bunkers
 				let enemyBulletX = enemyGun.X[0];
 				let enemyBulletY = enemyGun.Y[0] + enemyGun.step;
-				let playerHitboxX = paraShip.X;
-				let playerHitboxY = paraShip.Y + 690; // Y ajusté pour la base du vaisseau joueur
-				let playerHitboxWidth = 30;
-				let playerHitboxHeight = 10;
+				let enemyBulletWidth = 2;
+				let enemyBulletHeight = 5;
 
-				if (enemyBulletX > playerHitboxX && enemyBulletX < playerHitboxX + playerHitboxWidth &&
-					enemyBulletY > playerHitboxY && enemyBulletY < playerHitboxY + playerHitboxHeight) {
+				// Vérifier collision avec bunkers d'abord
+				if (handleBunkerCollisions(enemyBulletX, enemyBulletY, enemyBulletWidth, enemyBulletHeight, false)) {
+					enemyGun.step = 0; // Réinitialiser le tir ennemi
+					enemyGun.X = [];
+					enemyGun.Y = [];
+					enemyGun.fire = false;
+					createExplosion(enemyBulletX, enemyBulletY, 'lightgreen', 5); // Petite explosion sur bunker
+				} else {
+					// Collision avec le joueur
+					let playerHitboxX = paraShip.X;
+					let playerHitboxY = paraShip.Y + 690; // Y ajusté pour la base du vaisseau joueur
+					let playerHitboxWidth = 30;
+					let playerHitboxHeight = 10;
 
-					sound.shock.play(); // Son de dégât sur le joueur
-					paraShip.live -= 5; // Réduire la vie du joueur (valeur à ajuster)
+					if (enemyBulletX < playerHitboxX + playerHitboxWidth &&
+						enemyBulletX + enemyBulletWidth > playerHitboxX &&
+						enemyBulletY < playerHitboxY + playerHitboxHeight &&
+						enemyBulletY + enemyBulletHeight > playerHitboxY) {
+
+						sound.shock.play(); // Son de dégât sur le joueur
+						paraShip.live -= 5; // Réduire la vie du joueur (valeur à ajuster)
 					dom("live", Math.max(0, Math.ceil(paraShip.live / (22/3)))); // Mettre à jour l'affichage des vies (supposant que 22 = 3 vies UI)
 
 					enemyGun.step = 0; // Réinitialiser le tir ennemi
@@ -272,12 +564,18 @@
 					enemyGun.fire = false;
 
 					if (paraShip.live <= 0) {
+						createExplosion(paraShip.X + 15, paraShip.Y + 695, 'white'); // Explosion du joueur
 						sound.loser.play();
 						// Afficher le message de fin de partie
 						document.getElementById("message").textContent = "GAME OVER! Score: " + parameter.score;
 						document.getElementById("message").style.display = "block";
 						document.getElementById("play").textContent = "Rejouer?";
 						document.getElementById("play").style.display = "block";
+
+						// Cacher le vaisseau du joueur après l'explosion (ou le marquer comme détruit)
+						// Pour simplement le cacher, on pourrait le déplacer hors de l'écran ou ne plus le dessiner.
+						// Ici, nous allons juste arrêter le jeu. L'explosion sera visible pendant un court instant.
+
 						window.cancelAnimationFrame(loop_globalLoop); // Arrêter la boucle de jeu
 						document.removeEventListener('keydown', yesMove); // Désactiver les mouvements
 						document.removeEventListener('keyup', stopMove);  // Désactiver les mouvements
@@ -315,29 +613,45 @@
 					paraShip.shootGun= false
 				}
 				else{
-					// Détection de collision entre le tir et l'ennemi
+					// Détection de collision entre le tir du joueur et l'ennemi OU les bunkers
 					let bulletX = paraGun.X[0] + 13;
 					let bulletY = paraGun.limit - paraGun.step + paraGun.Y[0];
-					let enemyX = badBoy.moveX;
-					let enemyY = badBoy.moveY;
-					let enemyWidth = 30;
-					let enemyHeight = 16; // Hauteur approximative de l'ennemi
+					let bulletWidth = 2;
+					let bulletHeight = 5;
 
-					if (bulletX > enemyX && bulletX < enemyX + enemyWidth &&
-						bulletY > enemyY && bulletY < enemyY + enemyHeight) {
-
-						sound.domages.play();
-						badBoy.health -= 25; // Réduire la vie de l'ennemi
-						paraGun.step = 0; // Réinitialiser le tir pour qu'il disparaisse
+					// Vérifier collision avec bunkers d'abord
+					if (handleBunkerCollisions(bulletX, bulletY, bulletWidth, bulletHeight, true)) {
+						paraGun.step = 0; // Réinitialiser le tir
 						paraGun.X = [];
 						paraGun.Y = [];
 						paraGun.fire = false;
 						paraShip.shootGun = false;
+						createExplosion(bulletX, bulletY, 'lightgreen', 5); // Petite explosion sur bunker
+					} else {
+						// Collision avec l'ennemi
+						let enemyX = badBoy.moveX;
+						let enemyY = badBoy.moveY;
+						let enemyWidth = 30;
+						let enemyHeight = 16; // Hauteur approximative de l'ennemi
 
-						if (badBoy.health <= 0) {
-							sound.explosion.play();
-							parameter.score += 100; // Augmenter le score
-							dom("score", parameter.score);
+						if (bulletX < enemyX + enemyWidth &&
+							bulletX + bulletWidth > enemyX &&
+							bulletY < enemyY + enemyHeight &&
+							bulletY + bulletHeight > enemyY) {
+
+							sound.domages.play();
+							badBoy.health -= 25; // Réduire la vie de l'ennemi
+							paraGun.step = 0; // Réinitialiser le tir pour qu'il disparaisse
+							paraGun.X = [];
+							paraGun.Y = [];
+							paraGun.fire = false;
+							paraShip.shootGun = false;
+
+							if (badBoy.health <= 0) {
+								createExplosion(badBoy.moveX + 15, badBoy.moveY + 8, badBoy.color[parameter.level] || 'yellow'); // Explosion de l'ennemi
+								// sound.explosion.play(); // Déjà joué dans createExplosion
+								parameter.score += 100; // Augmenter le score
+								dom("score", parameter.score);
 
 							// Augmentation de niveau tous les 500 points (par exemple)
 							if (parameter.score % 500 === 0 && parameter.score > 0) {
@@ -378,6 +692,34 @@
 			// Afficher la barre de vie de l'ennemi
 			ctx.fillStyle = "green";
 			ctx.fillRect(badBoy.moveX, badBoy.moveY - 10, (badBoy.health / (100 + (parameter.level -1) * 20)) * 30, 5);
+
+			handleParticles(); // Gérer les particules d'explosion à chaque frame
+			handleAsteroids(); // Gérer les astéroïdes à chaque frame
+			drawBunkers();     // Dessiner les bunkers
+			handleBonusShip(); // Gérer le vaisseau bonus
+
+			// Logique de descente de l'ennemi (Space Invaders style)
+			enemyDescentTimer++;
+			if (enemyDescentTimer >= enemyDescentInterval) {
+				badBoy.moveY += enemyDescentAmount;
+				enemyDescentTimer = 0;
+				// Si l'ennemi atteint le bas (ou une certaine hauteur proche des bunkers/joueur)
+				if (badBoy.moveY + 16 > canvas.height - 150) { // 16 est la hauteur de l'ennemi, 150 la position des bunkers
+					// GAME OVER - les envahisseurs ont atteint la base
+					if(document.getElementById("message").textContent.indexOf("GAME OVER") === -1){
+						createExplosion(paraShip.X + 15, paraShip.Y + 695, 'white', 40); // Grosse explosion joueur
+						sound.loser.play();
+						document.getElementById("message").textContent = "GAME OVER! Invaders reached the base. Score: " + parameter.score;
+						document.getElementById("message").style.display = "block";
+						document.getElementById("play").textContent = "Rejouer?";
+						document.getElementById("play").style.display = "block";
+						window.cancelAnimationFrame(loop_globalLoop);
+						document.removeEventListener('keydown', yesMove);
+						document.removeEventListener('keyup', stopMove);
+						return;
+					}
+				}
+			}
 
 
 			loop_globalLoop = window.requestAnimationFrame(globalLoop);
